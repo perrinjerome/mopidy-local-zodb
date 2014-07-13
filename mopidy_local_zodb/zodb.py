@@ -67,7 +67,7 @@ class ZodbLibrary(local.Library):
               def wrapper(name, original_handler):
 
                 # different MPD clients queries with album cased differently
-                lower_case_args = set(('artist', 'album' 'albumartist'))
+                lower_case_args = set(('artist', 'album', 'albumartist'))
 
                 def get_cache_key(args):
                   return str((name,) + tuple(
