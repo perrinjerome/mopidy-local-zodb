@@ -215,13 +215,15 @@ class ZodbLibrary(local.Library):
         self._added_track_list.append(track)
 
     def flush(self):
-        artist_album_set = set()
+        artist_album_date_set = set()
         for track in self._added_track_list:
           for artist in track.album.artists:
             self._fill_browser_cache(track.uri)
-            artist_album_set.add((artist.name, track.album.name))
+            artist_album_date_set.add((artist.name,
+                                       track.album.name,
+                                       track.date or track.album.date))
 
-        for artist, album in artist_album_set:
+        for artist, album, date in artist_album_date_set:
           if artist:
             self._fill_mpd_cache('list', 'album', 'artist', artist)
             self._fill_mpd_cache('list', 'album', 'albumartist', artist)
@@ -246,6 +248,11 @@ class ZodbLibrary(local.Library):
               # mpdroid queries this
               self._fill_mpd_cache('find', 'albumartist', artist, 'album', album, 'track', '1')
               self._fill_mpd_cache('find', 'albumartist', artist, 'album', album, 'track', '01')
+              # ncmpcpp
+              self._fill_mpd_cache('list', 'Date', 'artist', artist, 'album', album)
+              if date:
+                # XXX date is not unicode, just a string
+                self._fill_mpd_cache('find', 'artist', artist, 'album', album, 'Date', unicode(date))
               self._fill_search_cache({'album': [album], 'artist': [artist]})
               self._fill_search_cache({'album': [album], 'albumartist': [artist]})
 
