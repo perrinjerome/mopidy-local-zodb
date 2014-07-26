@@ -79,7 +79,7 @@ class ZodbLibrary(local.Library):
                   if cache_key in self._mpd_cache:
                     return self._mpd_cache[cache_key]
 
-                  print "oh pas cache", cache_key
+                  logger.debug("Cache miss for %s" % cache_key)
                   value = original_handler(*args)
                   return value
 
