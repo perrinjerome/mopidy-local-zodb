@@ -218,7 +218,6 @@ class ZodbLibrary(local.Library):
         artist_album_date_set = set()
         for track in self._added_track_list:
           for artist in track.album.artists:
-            self._fill_browser_cache(track.uri)
             artist_album_date_set.add((artist.name,
                                        track.album.name,
                                        track.date or track.album.date))
@@ -264,6 +263,9 @@ class ZodbLibrary(local.Library):
         self._fill_mpd_cache('list', 'album')
         self._fill_mpd_cache('list', 'albumartist')
 
+        # refresh browser cache
+        for track_uri in self._tracks:
+          self._fill_browser_cache(track_uri)
         transaction.commit()
         return True
 
