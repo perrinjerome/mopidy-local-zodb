@@ -60,6 +60,7 @@ class ZodbLibrary(local.Library):
             self._mpd_cache = root['_mpd_cache']
 
             # Monkey patch existing MPD commands to add cache
+            from mopidy.mpd.protocol import music_db # this registers command handlers
             from mopidy.mpd.protocol import commands
             self._mpd_protocol_handlers = {}
             for name, handler in commands.handlers.items():
