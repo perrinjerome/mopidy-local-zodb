@@ -5,19 +5,12 @@ import tempfile
 import unittest
 
 from mopidy.local import translator
-from mopidy.models import SearchResult, Track
+from mopidy.models import SearchResult, Track, Artist, Album
 
 from mopidy_local_zodb import zodb
 
 
-class LocalLibraryProviderTest(unittest.TestCase):
-
-    config = {
-        'local-zodb': {
-          'cache_mpd': True,
-        }
-    }
-
+class LocalLibraryProviderTest(object):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
         self.library = zodb.ZodbLibrary(dict(self.config, local={
@@ -54,11 +47,83 @@ class LocalLibraryProviderTest(unittest.TestCase):
         self.library.clear()
         self.assertEqual(self.library.load(), 0)
 
-    def test_search_uri(self):
-        empty = SearchResult(uri='local:search?')
-        self.assertEqual(empty, self.library.search(uris=None))
-        self.assertEqual(empty, self.library.search(uris=[]))
-        self.assertEqual(empty, self.library.search(uris=['local:']))
-        self.assertEqual(empty, self.library.search(uris=['local:directory']))
-        self.assertEqual(empty, self.library.search(uris=['local:directory:']))
-        self.assertEqual(empty, self.library.search(uris=['foobar:']))
+    def test_search_artist(self):
+        track = Track(
+            uri='local:track:track.mp3',
+            artists=[Artist(name='Found')])
+        self.library.begin()
+        self.library.add(track)
+        self.assertEqual((track, ),
+            self.library.search(query={'artist': ['Found']}).tracks)
+        self.assertEqual((),
+            self.library.search(query={'artist': ['Not found']}).tracks)
+
+    def test_search_album(self):
+        track = Track(
+            uri='local:track:track.mp3',
+            album=Album(name='Found'))
+        self.library.begin()
+        self.library.add(track)
+        self.assertEqual((track, ),
+            self.library.search(query={'album': ['Found']}).tracks)
+        self.assertEqual((),
+            self.library.search(query={'album': ['Not found']}).tracks)
+
+
+class LocalLibraryProviderTestWithoutCache(
+        LocalLibraryProviderTest,
+        unittest.TestCase):
+
+    config = {
+        'local-zodb': {
+          'cache_mpd': False,
+        }
+    }
+
+class LocalLibraryProviderTestWithCache(
+        LocalLibraryProviderTest,
+        unittest.TestCase):
+
+    config = {
+        'local-zodb': {
+          'cache_mpd': True,
+        },
+    }
+
+    def _get_context(self):
+        # XXX probably not needed, since cache must be filled at this point
+        class Context:
+            class core:
+                class library:
+                    @staticmethod
+                    def get_distinct(field, query):
+                        class FakeDeferredResult:
+                            @staticmethod
+                            def get():
+                                return self.library.get_distinct(field, query)
+                        return FakeDeferredResult
+        return Context
+
+    def test_mpd_command_list(self):
+        from mopidy.mpd.protocol import commands
+        track = Track(
+            uri='local:track:track.mp3',
+            album=Album(name='Found',
+                        artists=[Artist(name='Found')]))
+        self.library.begin()
+        self.library.add(track)
+        self.library.flush()
+
+        self.assertEqual(
+            1,
+            len(commands.handlers['list'](self._get_context(), 'album', 'Found')))
+        self.assertEqual(
+            0,
+            len(commands.handlers['list'](self._get_context(), 'album', 'Not Found')))
+
+        self.assertEqual(
+            1,
+            len(commands.handlers['list'](self._get_context(), 'album')))
+        self.assertEqual(
+            1,
+            len(commands.handlers['list'](self._get_context(), 'artist')))
