@@ -129,7 +129,7 @@ class ZodbLibrary(local.Library):
 
     def lookup(self, uri):
         try:
-            return self._tracks[uri]
+            return [self._tracks[uri]]
         except KeyError:
             return None
 
