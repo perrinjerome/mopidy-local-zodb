@@ -112,6 +112,8 @@ class ZodbLibrary(local.Library):
                         def get():
                             return [self.search(kw, exact=True)]
                     return result
+                # XXX
+                get_distinct = find_exact
             # Instanciating a MpdContext needs to access playlist
             class playlists:
                 class playlists:
