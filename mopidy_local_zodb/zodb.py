@@ -96,6 +96,8 @@ class ZodbLibrary(local.Library):
         return len(self._tracks)
 
     def _fill_mpd_cache(self, name, *arguments):
+        if not self.cache_mpd:
+            return
         # To fill MPD cache we need to create a fake context without ourselves as
         # the library.
         from mopidy.mpd.dispatcher import MpdContext
