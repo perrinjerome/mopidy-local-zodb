@@ -4,6 +4,9 @@ Mopidy-Local-ZODB
 
 ZODB local library extension.
 
+.. image:: https://travis-ci.org/perrinjerome/mopidy-local-zodb.svg
+    :target: https://travis-ci.org/perrinjerome/mopidy-local-zodb
+
 Installation
 ============
 
