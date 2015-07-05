@@ -38,88 +38,89 @@ class ZodbLibrary(local.Library):
 
         # Track database
         if not hasattr(root, '_tracks'):
-          root._tracks = BTrees.OOBTree.OOBTree()
+            root._tracks = BTrees.OOBTree.OOBTree()
         self._tracks = root._tracks
 
         # Cache for browse
         if not hasattr(root, '_browse_cache'):
-          root._browse_cache = BTrees.OOBTree.OOBTree()
+            root._browse_cache = BTrees.OOBTree.OOBTree()
         self._browse_cache = root._browse_cache
 
         # Cache for searches.
         # This cache is low level and not so efficient because a list of tracks
         # is pulled from db and then filtered.
         if not hasattr(root, '_search_cache'):
-          root._search_cache = BTrees.OOBTree.OOBTree()
+            root._search_cache = BTrees.OOBTree.OOBTree()
         self._search_cache = root._search_cache
 
         if self.cache_mpd:
-          # Cache for mpd queries
-          if '_mpd_cache' not in root:
-            root['_mpd_cache'] = BTrees.OOBTree.OOBTree()
-          self._mpd_cache = root['_mpd_cache']
+            # Cache for mpd queries
+            if '_mpd_cache' not in root:
+                root['_mpd_cache'] = BTrees.OOBTree.OOBTree()
+            self._mpd_cache = root['_mpd_cache']
 
-          # Monkey patch existing MPD commands to add cache
-          from mopidy.mpd.protocol import commands
-          self._mpd_protocol_handlers = {}
-          for name, handler in commands.handlers.items():
-            if name in ('count', 'find', 'list',):
-              def wrapper(name, original_handler):
+            # Monkey patch existing MPD commands to add cache
+            from mopidy.mpd.protocol import commands
+            self._mpd_protocol_handlers = {}
+            for name, handler in commands.handlers.items():
+                if name in ('count', 'find', 'list',):
+                    def wrapper(name, original_handler):
 
-                # different MPD clients queries with album cased differently
-                lower_case_args = set(('artist', 'album', 'albumartist'))
+                      # different MPD clients queries with album cased differently
+                      lower_case_args = set(('artist', 'album', 'albumartist'))
 
-                def get_cache_key(args):
-                  return str((name,) + tuple(
-                    (a.lower() in lower_case_args and a.lower() or a)
-                    for a in args[1:]))
+                      def get_cache_key(args):
+                          return str((name,) + tuple(
+                            (a.lower() in lower_case_args and a.lower() or a)
+                            for a in args[1:]))
 
-                def func(*args):
-                  cache_key = get_cache_key(args)
-                  if cache_key in self._mpd_cache:
-                    return self._mpd_cache[cache_key]
+                      def func(*args):
+                          cache_key = get_cache_key(args)
+                          if cache_key in self._mpd_cache:
+                              return self._mpd_cache[cache_key]
 
-                  logger.debug("Cache miss for %s" % cache_key)
-                  value = original_handler(*args)
-                  return value
+                          logger.debug("Cache miss for %s" % cache_key)
+                          value = original_handler(*args)
+                          return value
 
-                func.auth_required = original_handler.auth_required
-                func.list_command = original_handler.list_command
-                func.get_cache_key = get_cache_key
-                func.original_handler = original_handler
-                return func
+                      func.auth_required = original_handler.auth_required
+                      func.list_command = original_handler.list_command
+                      func.get_cache_key = get_cache_key
+                      func.original_handler = original_handler
+                      return func
 
-              self._mpd_protocol_handlers[name] = \
-                commands.handlers[name] = wrapper(name, handler)
+                      self._mpd_protocol_handlers[name] = \
+                         commands.handlers[name] = \
+                         wrapper(name, handler)
 
         return len(self._tracks)
 
     def _fill_mpd_cache(self, name, *arguments):
-      # To fill MPD cache we need to create a fake context without ourselves as
-      # the library.
-      from mopidy.mpd.dispatcher import MpdContext
-      from mopidy.local.library import LocalLibraryProvider
+        # To fill MPD cache we need to create a fake context without ourselves as
+        # the library.
+        from mopidy.mpd.dispatcher import MpdContext
+        from mopidy.local.library import LocalLibraryProvider
 
-      class FakeCore:
-        class library:
-          @staticmethod
-          def find_exact(*args, **kw):
-            class result:
-              @staticmethod
-              def get():
-                return [self.search(kw, exact=True)]
-            return result
-        # Instanciating a MpdContext needs to access playlist
-        class playlists:
-          class playlists:
-            @staticmethod
-            def get():
-              return []
+        class FakeCore:
+            class library:
+                @staticmethod
+                def find_exact(*args, **kw):
+                    class result:
+                        @staticmethod
+                        def get():
+                            return [self.search(kw, exact=True)]
+                    return result
+            # Instanciating a MpdContext needs to access playlist
+            class playlists:
+                class playlists:
+                    @staticmethod
+                    def get():
+                        return []
 
-      fake_context = MpdContext(None, core=FakeCore)
-      handler = self._mpd_protocol_handlers[name]
-      cache_key = handler.get_cache_key((None,) + arguments)
-      self._mpd_cache[cache_key] = handler.original_handler(fake_context, *arguments)
+        fake_context = MpdContext(None, core=FakeCore)
+        handler = self._mpd_protocol_handlers[name]
+        cache_key = handler.get_cache_key((None,) + arguments)
+        self._mpd_cache[cache_key] = handler.original_handler(fake_context, *arguments)
 
     def browse(self, uri):
         return self._browse_cache.get(uri, {}).values()
@@ -132,11 +133,11 @@ class ZodbLibrary(local.Library):
 
     def _fill_search_cache(self, query):
         for exact in (True, False):
-          key = '%s %s' % (query, int(exact))
-          if key in self._search_cache:
-            del self._search_cache[key]
-          val = self.search(query, exact=exact)
-          self._search_cache[key] = deepcopy(val)
+            key = '%s %s' % (query, int(exact))
+            if key in self._search_cache:
+                del self._search_cache[key]
+            val = self.search(query, exact=exact)
+            self._search_cache[key] = deepcopy(val)
 
     def search(self, query=None, limit=100, offset=0, uris=None, exact=False):
         assert not uris, NotImplemented
@@ -144,11 +145,11 @@ class ZodbLibrary(local.Library):
         assert limit == 100, NotImplemented
         key = '%s %s' % (query, int(exact))
         try:
-          val = self._search_cache[key]
-          #print "search hit for ", key
-          return val
+            val = self._search_cache[key]
+            #print "search hit for ", key
+            return val
         except KeyError:
-          pass
+            pass
 
         tracks = getattr(self, '_tracks', {}).values()
         if exact:
@@ -162,7 +163,7 @@ class ZodbLibrary(local.Library):
     splitpath_re = re.compile(r'([^/]+)')
     def _fill_browser_cache(self, track_uri):
         if 'local:directory' not in self._browse_cache:
-          self._browse_cache['local:directory'] = collections.OrderedDict()
+            self._browse_cache['local:directory'] = collections.OrderedDict()
         path = translator.local_track_uri_to_path(track_uri, b'/')
         parts = self.splitpath_re.findall(
             path.decode(self.encoding, 'replace'))
@@ -217,43 +218,43 @@ class ZodbLibrary(local.Library):
     def flush(self):
         artist_album_date_set = set()
         for track in self._added_track_list:
-          for artist in track.album.artists:
-            artist_album_date_set.add((artist.name,
-                                       track.album.name,
-                                       track.date or track.album.date))
+            for artist in track.album.artists:
+                artist_album_date_set.add(
+                    (artist.name,
+                    track.album.name,
+                    track.date or track.album.date))
 
         for artist, album, date in artist_album_date_set:
-          if artist:
-            self._fill_mpd_cache('list', 'album', 'artist', artist)
-            self._fill_mpd_cache('list', 'album', 'albumartist', artist)
-            self._fill_mpd_cache('find', 'artist', artist)
-            self._fill_mpd_cache('find', 'albumartist', artist)
-            self._fill_mpd_cache('list', 'album', artist) # mpdroid queries this
-            self._fill_search_cache({'albumartist': [artist]})
-            self._fill_search_cache({'artist': [artist]})
-          if album:
-            self._fill_mpd_cache('list', 'album', album)
-            self._fill_mpd_cache('find', 'album', album)
-            self._fill_search_cache({'album': [album]})
             if artist:
-              self._fill_mpd_cache('find', 'albumartist', artist, 'album', album)
-              self._fill_mpd_cache('find', 'album', album, 'albumartist',
-              artist)
-              self._fill_mpd_cache('find', 'artist', artist, 'album', album)
-              self._fill_mpd_cache('count', 'albumartist', artist, 'album', album)
-              self._fill_mpd_cache('count', 'album', album, 'albumartist', artist)
-              self._fill_mpd_cache('list', 'albumartist', 'artist', artist, 'album', album)
-              self._fill_mpd_cache('count', 'artist', artist, 'album', album)
-              # mpdroid queries this
-              self._fill_mpd_cache('find', 'albumartist', artist, 'album', album, 'track', '1')
-              self._fill_mpd_cache('find', 'albumartist', artist, 'album', album, 'track', '01')
-              # ncmpcpp
-              self._fill_mpd_cache('list', 'Date', 'artist', artist, 'album', album)
-              if date:
-                # XXX date is not unicode, just a string
-                self._fill_mpd_cache('find', 'artist', artist, 'album', album, 'Date', unicode(date))
-              self._fill_search_cache({'album': [album], 'artist': [artist]})
-              self._fill_search_cache({'album': [album], 'albumartist': [artist]})
+                self._fill_mpd_cache('list', 'album', 'artist', artist)
+                self._fill_mpd_cache('list', 'album', 'albumartist', artist)
+                self._fill_mpd_cache('find', 'artist', artist)
+                self._fill_mpd_cache('find', 'albumartist', artist)
+                self._fill_mpd_cache('list', 'album', artist) # mpdroid queries this
+                self._fill_search_cache({'albumartist': [artist]})
+                self._fill_search_cache({'artist': [artist]})
+            if album:
+                self._fill_mpd_cache('list', 'album', album)
+                self._fill_mpd_cache('find', 'album', album)
+                self._fill_search_cache({'album': [album]})
+                if artist:
+                    self._fill_mpd_cache('find', 'albumartist', artist, 'album', album)
+                    self._fill_mpd_cache('find', 'album', album, 'albumartist', artist)
+                    self._fill_mpd_cache('find', 'artist', artist, 'album', album)
+                    self._fill_mpd_cache('count', 'albumartist', artist, 'album', album)
+                    self._fill_mpd_cache('count', 'album', album, 'albumartist', artist)
+                    self._fill_mpd_cache('list', 'albumartist', 'artist', artist, 'album', album)
+                    self._fill_mpd_cache('count', 'artist', artist, 'album', album)
+                    # mpdroid queries this
+                    self._fill_mpd_cache('find', 'albumartist', artist, 'album', album, 'track', '1')
+                    self._fill_mpd_cache('find', 'albumartist', artist, 'album', album, 'track', '01')
+                    # ncmpcpp
+                    self._fill_mpd_cache('list', 'Date', 'artist', artist, 'album', album)
+                    if date:
+                        # XXX date is not unicode, just a string
+                        self._fill_mpd_cache('find', 'artist', artist, 'album', album, 'Date', unicode(date))
+                    self._fill_search_cache({'album': [album], 'artist': [artist]})
+                    self._fill_search_cache({'album': [album], 'albumartist': [artist]})
 
         self._added_track_list = []
 
@@ -265,7 +266,7 @@ class ZodbLibrary(local.Library):
 
         # refresh browser cache
         for track_uri in self._tracks:
-          self._fill_browser_cache(track_uri)
+            self._fill_browser_cache(track_uri)
         transaction.commit()
         return True
 
