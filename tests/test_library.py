@@ -14,6 +14,7 @@ class LocalLibraryProviderTest(unittest.TestCase):
 
     config = {
         'local-zodb': {
+          'cache_mpd': True,
         }
     }
 
