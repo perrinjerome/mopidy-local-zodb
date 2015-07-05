@@ -218,11 +218,12 @@ class ZodbLibrary(local.Library):
     def flush(self):
         artist_album_date_set = set()
         for track in self._added_track_list:
-            for artist in track.album.artists:
-                artist_album_date_set.add(
-                    (artist.name,
-                    track.album.name,
-                    track.date or track.album.date))
+            if track.album:
+                for artist in track.album.artists:
+                    artist_album_date_set.add(
+                        (artist.name,
+                        track.album.name,
+                        track.date or track.album.date))
 
         for artist, album, date in artist_album_date_set:
             if artist:
