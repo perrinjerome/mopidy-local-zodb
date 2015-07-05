@@ -28,9 +28,9 @@ class ZodbLibrary(local.Library):
         self.cache_mpd = config['local-zodb']['cache_mpd']
 
     def load(self):
-        storage = ZODB.FileStorage.FileStorage(self._zodb_file)
+        self._storage = ZODB.FileStorage.FileStorage(self._zodb_file)
 
-        self._db = db = ZODB.DB(storage)
+        self._db = db = ZODB.DB(self._storage)
         connection = db.open()
         self._connection = connection
         root = connection.root()
@@ -277,13 +277,13 @@ class ZodbLibrary(local.Library):
         # during scan
         self._db.pack()
         self._db.close()
+        self._storage.close()
 
     def clear(self):
         self.load()
-        self._db.close()
+        self.close()
         try:
             os.remove(self._zodb_file)
-            self.load()
             return True
         except OSError:
             return False
