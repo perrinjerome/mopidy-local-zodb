@@ -65,31 +65,30 @@ class ZodbLibrary(local.Library):
             for name, handler in commands.handlers.items():
                 if name in ('count', 'find', 'list',):
                     def wrapper(name, original_handler):
+                        # different MPD clients queries with album cased differently
+                        lower_case_args = set(('artist', 'album', 'albumartist'))
 
-                      # different MPD clients queries with album cased differently
-                      lower_case_args = set(('artist', 'album', 'albumartist'))
+                        def get_cache_key(args):
+                            return str((name,) + tuple(
+                                (a.lower() in lower_case_args and a.lower() or a)
+                                for a in args[1:]))
 
-                      def get_cache_key(args):
-                          return str((name,) + tuple(
-                            (a.lower() in lower_case_args and a.lower() or a)
-                            for a in args[1:]))
+                        def func(*args):
+                            cache_key = get_cache_key(args)
+                            if cache_key in self._mpd_cache:
+                                return self._mpd_cache[cache_key]
 
-                      def func(*args):
-                          cache_key = get_cache_key(args)
-                          if cache_key in self._mpd_cache:
-                              return self._mpd_cache[cache_key]
+                            logger.debug("Cache miss for %s" % cache_key)
+                            value = original_handler(*args)
+                            return value
 
-                          logger.debug("Cache miss for %s" % cache_key)
-                          value = original_handler(*args)
-                          return value
+                        func.auth_required = original_handler.auth_required
+                        func.list_command = original_handler.list_command
+                        func.get_cache_key = get_cache_key
+                        func.original_handler = original_handler
+                        return func
 
-                      func.auth_required = original_handler.auth_required
-                      func.list_command = original_handler.list_command
-                      func.get_cache_key = get_cache_key
-                      func.original_handler = original_handler
-                      return func
-
-                      self._mpd_protocol_handlers[name] = \
+                    self._mpd_protocol_handlers[name] = \
                          commands.handlers[name] = \
                          wrapper(name, handler)
 
